@@ -1,34 +1,38 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-test.describe('Просмотр трейлера и фильма', () => {
-
-  // Общие предварительные шаги перед каждым тестом
-  test.beforeEach(async ({ page }) => {
+  // ТЕСТ [1.1]: Проверка выбора языка на начальном экране
+  test('[1.1] Выбор русского языка на начальном экране', async ({ page }) => {
     // 1. Переходим на главную страницу сервиса
-    await page.goto('https://devg14.unico.wtf/');
+    await page.goto('https://devg14.unico.wtf/', { waitUntil: 'domcontentloaded' });
 
-    // 2. Настраиваем локализацию интерфейса (переключение языка на русский)
+    // 2. Переключаем язык интерфейса на русский
     await page.getByText('Қазақша').click();
     await page.getByText('Русский').click();
     await page.getByText('Сохранить').click();
 
-    // 3. Ждем, пока URL изменится и подтвердит переход на русскую версию (/ru)
+    // 3. Подтверждаем переход на русскую версию (/ru)
     await page.waitForURL('**/ru');
-
-    // 4. Находим элемент первого фильма в блоке слайдера "Originals"
-    const firstMovie = page.locator('#slider_originals-ma').getByRole('link').first();
-    
-    // 5. Проверяем видимость карточки и совершаем переход кликом
-    await expect(firstMovie).toBeVisible();
-    await firstMovie.click();
-
-    // 6. Ожидаем завершения загрузки страницы карточки фильма (по наличию /watch/ в URL)
-    await page.waitForURL(/\/watch\//);
+    await expect(page).toHaveURL(/.*\/ru/);
   });
 
-  // ТЕСТ 1: Проверка работы плеера трейлера
-  test('Воспроизведение и перемотка трейлера', async ({ page }) => {
+// Вспомогательное предусловие: выбор языка и переход в карточку первого фильма
+async function openMoviePage(page: Page) {
+  await page.goto('https://devg14.unico.wtf/', { waitUntil: 'domcontentloaded' });
+  await page.getByText('Қазақша').click();
+  await page.getByText('Русский').click();
+  await page.getByText('Сохранить').click();
+  await page.waitForURL('**/ru');
+
+  const firstMovie = page.locator('#slider_originals-ma').getByRole('link').first();
+  await expect(firstMovie).toBeVisible();
+  await firstMovie.click();
+  await page.waitForURL(/\/watch\//);
+}
+
+  // ТЕСТ 1.5: Проверка работы плеера трейлера
+  test('[1.5] Воспроизведение и перемотка трейлера', async ({ page }) => {
     // 1. Находим кнопку запуска трейлера и убеждаемся, что она доступна
+    await openMoviePage(page);
     const trailerBtn = page.getByText('Трейлер').first();
     await expect(trailerBtn).toBeVisible();
     
@@ -77,8 +81,9 @@ test.describe('Просмотр трейлера и фильма', () => {
   });
 
   // ТЕСТ 2: Проверка работы плеера основного фильма
-  test('Воспроизведение и перемотка основного фильма', async ({ page }) => {
+  test('[1.6] Воспроизведение и перемотка основного фильма', async ({ page }) => {
     // 1. Находим кнопку запуска полноформатного фильма и кликаем по ней
+    await openMoviePage(page);
     const playFreeBtn = page.getByText('Смотреть бесплатно', { exact: true }).first();
     await expect(playFreeBtn).toBeVisible();
     await playFreeBtn.click({ force: true }); // force: true позволяет обойти возможные прозрачные оверлеи
@@ -126,5 +131,3 @@ test.describe('Просмотр трейлера и фильма', () => {
     // 9. Финальная проверка: контейнер плеера успешно закрыт
     await page.locator('#startPlayerContainer').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   });
-
-});
