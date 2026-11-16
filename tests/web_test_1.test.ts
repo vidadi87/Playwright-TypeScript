@@ -15,6 +15,15 @@ const PLAYER_CONTAINER = "#startPlayerContainer";
 
 const PLAYER_TIMEOUT = 15_000;
 
+/* Преролл (рекламный ролик перед контентом) и основное видео внутри плеера */
+const PROMO_WRAPPER = "#promoWrapper";
+const MAIN_VIDEO = "#startVideo";
+/* Максимум ожидания кнопки "Пропустить" (появляется после отсчета) или окончания преролла */
+const PREROLL_TIMEOUT = 30_000;
+/* Основное видео считаем стартовавшим, если оно ушло дальше этой отметки (сек):
+   до показа преролла оно успевает проиграть ~0.2 сек и встает на паузу */
+const MAIN_STARTED_SEC = 1;
+
 // =====================================================================
 // Хелперы: навигация
 // =====================================================================
@@ -141,15 +150,56 @@ async function seekToMiddle(video: Locator) {
   });
 }
 
-/** Пропуск преролла, если он появился */
+/**
+ * Пропуск преролла (рекламного ролика перед контентом), если он есть.
+ *
+ * Разметка (снята из trace):
+ *   #startPlayerContainer
+ *     video#startVideo          - основное видео, на паузе (~0.2 сек), пока идет преролл
+ *     figure#promoWrapper       - преролл, есть в DOM только пока он показывается
+ *       video#promoVideo
+ *       div "Пропустить" + img[alt=promo_skip] - появляется не сразу, а после отсчета (~5-8 сек)
+ *
+ * Преролл есть не на всех продуктах и не всегда, поэтому сначала ждем, что стартует раньше:
+ * преролл или основное видео. Основное видео может проиграть долю секунды до появления
+ * преролла, поэтому считаем его стартовавшим только после MAIN_STARTED_SEC.
+ */
 async function skipPrerollIfPresent(page: Page) {
-  const skipBtn = page.getByText("Пропустить");
-  try {
-    await skipBtn.waitFor({ state: "visible", timeout: 5_000 });
-    await skipBtn.click();
-  } catch {
-    // Преролла нет - продолжаем
-  }
+  await test.step("Пропуск преролла (если есть)", async () => {
+    const promo = page.locator(PROMO_WRAPPER);
+
+    let started: "promo" | "main" | null = null;
+    await expect
+      .poll(
+        async () => {
+          if (await promo.isVisible()) return (started = "promo");
+          // page.evaluate, а не locator.evaluate: тот ждет появления элемента до actionTimeout
+          const mainTime = await page.evaluate(
+            (sel) => document.querySelector<HTMLVideoElement>(sel)?.currentTime ?? 0,
+            MAIN_VIDEO,
+          );
+          if (mainTime > MAIN_STARTED_SEC) return (started = "main");
+          return null;
+        },
+        { message: "Не стартовал ни преролл, ни основное видео", timeout: PLAYER_TIMEOUT },
+      )
+      .not.toBeNull();
+
+    if (started === "main") return; // преролла нет
+
+    // Ждем кнопку "Пропустить" или окончания преролла (короткий ролик может закончиться сам).
+    // exact: true - чтобы не кликнуть по тексту отсчета, если он вида "Пропустить через 5"
+    const skipBtn = promo.getByText("Пропустить", { exact: true });
+    await expect
+      .poll(
+        async () => (await skipBtn.isVisible()) || !(await promo.isVisible()),
+        { message: "Кнопка 'Пропустить' не появилась, преролл не закончился", timeout: PREROLL_TIMEOUT },
+      )
+      .toBe(true);
+
+    if (await promo.isVisible()) await skipBtn.click();
+    await expect(promo, "Преролл не закрылся после 'Пропустить'").toBeHidden({ timeout: 5_000 });
+  });
 }
 
 /** Закрытие плеера по крестику с обязательной проверкой, что плеер исчез */
