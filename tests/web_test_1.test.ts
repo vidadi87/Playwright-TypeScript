@@ -10,19 +10,46 @@ const RU_URL_RE = /\/ru(\/|\?|#|$)/;
 /* URL карточки продукта */
 const PRODUCT_URL_RE = /\/watch\//;
 
-/* Контейнер плеера (трейлер и основной контент) - TODO: сверить в DevTools */
+/* Заголовок карточки продукта начинается с типа: "Фильм Достать ножи – смотреть онлайн",
+   "Сериал Черная икра – смотреть онлайн" */
+const MOVIE_TITLE_RE = /^Фильм /;
+const SERIES_TITLE_RE = /^Сериал /;
+
+/* Тестовые данные: сериал с бесплатной серией (кнопка "Смотреть бесплатно" для гостя) */
+const FREE_EPISODE_SERIES_URL = "/ru/watch/chernaya-ikra";
+
+/* Плеер: один и тот же для трейлера и основного контента */
 const PLAYER_CONTAINER = "#startPlayerContainer";
+const MAIN_VIDEO = "#startVideo";
+/* Классы - CSS-модули с хэшем в конце (StartPlayerProgress_root__bar___FEuE),
+   хэш меняется при пересборке сайта, поэтому ищем по началу имени класса */
+const PLAYER_TITLE = '[class*="MainPlayer_title"]'; // "Черная икра: 1 серия, 1 сезон"
+const PROGRESS_BAR = '[class*="StartPlayerProgress_root__bar"]';
+const PROGRESS_CURRENT_TIME = '[class*="StartPlayerProgress_root__start"]'; // "27:08"
 
 const PLAYER_TIMEOUT = 15_000;
 
-/* Преролл (рекламный ролик перед контентом) и основное видео внутри плеера */
+/* Преролл (рекламный ролик перед контентом) */
 const PROMO_WRAPPER = "#promoWrapper";
-const MAIN_VIDEO = "#startVideo";
 /* Максимум ожидания кнопки "Пропустить" (появляется после отсчета) или окончания преролла */
 const PREROLL_TIMEOUT = 30_000;
 /* Основное видео считаем стартовавшим, если оно ушло дальше этой отметки (сек):
    до показа преролла оно успевает проиграть ~0.2 сек и встает на паузу */
 const MAIN_STARTED_SEC = 1;
+
+/* Допустимая позиция после клика по середине полосы прогресса (доля длительности).
+   Верхняя граница с запасом: видео продолжает идти, пока выполняется проверка */
+const SEEK_MIDDLE_MIN = 0.4;
+const SEEK_MIDDLE_MAX = 0.65;
+
+/*
+ * Ответы сайта с ошибкой, которые не являются поломкой (проверено вручную):
+ * - /monitoring - отправка статистики мониторинга, всегда 403
+ * - /auth/refresh - обновление сессии, у неавторизованного пользователя всегда 401
+ * - /multiplex/selections/ - данные линейки; 404, если линейка отключена для этого
+ *   пользователя (виртуальный взрослый). Это не ошибка
+ */
+const IGNORED_ERROR_URLS = [/\/monitoring\?/, /\/auth\/refresh/, /\/multiplex\/selections\//];
 
 // =====================================================================
 // Хелперы: навигация
@@ -48,13 +75,16 @@ async function switchLanguageToRussian(page: Page) {
     await expect(saveButton, "Баннер выбора языка не появился").toBeVisible({ timeout: 20_000 });
 
     // Предусловие: стартовый язык - казахский
-    await expect(kazakhSwitcher, "Дефолтный язык должен быть казахским").toBeVisible();
+    await expect(page.locator("html"), "Дефолтный язык должен быть казахским").toHaveAttribute("lang", "kk");
+    await expect(kazakhSwitcher, "В баннере должен быть выбран казахский").toBeVisible();
 
     await kazakhSwitcher.click();
     await page.getByText("Русский", { exact: true }).click();
     await saveButton.click();
 
-    await page.waitForURL(RU_URL_RE);
+    // domcontentloaded, а не дефолтный load: load ждет все сторонние скрипты и картинки
+    // и под нагрузкой не успевает за 30 сек. Полную загрузку проверяет reload ниже
+    await page.waitForURL(RU_URL_RE, { waitUntil: "domcontentloaded" });
 
     // Выбор сохранен: баннер закрылся, и после перезагрузки сайт остается на русском
     await expect(saveButton, "Баннер выбора языка не закрылся после сохранения").toBeHidden();
@@ -77,17 +107,56 @@ async function openFirstProduct(page: Page) {
   });
 }
 
+/** Заголовок карточки продукта (h1) */
+function productTitle(page: Page): Locator {
+  return page.locator("h1").first();
+}
+
+// =====================================================================
+// Хелперы: ошибки страницы
+// =====================================================================
+
+/**
+ * Сбор ошибок страницы с момента вызова:
+ * - необработанные JS-исключения;
+ * - ответы с кодом >= 400 от доменов сайта (*.unicoplay.com), кроме IGNORED_ERROR_URLS.
+ * Сторонние сервисы (счетчики, реклама) не проверяем: их сбои - не ошибки сайта.
+ * Сообщения console.error тоже не проверяем: там дублируются те же ответы сервера.
+ */
+function collectPageErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`JS-ошибка: ${e.message}`));
+  page.on("response", (r) => {
+    const url = r.url();
+    if (r.status() < 400) return;
+    if (!/^https:\/\/([\w-]+\.)*unicoplay\.com\//.test(url)) return;
+    if (IGNORED_ERROR_URLS.some((re) => re.test(url))) return;
+    errors.push(`HTTP ${r.status()}: ${url}`);
+  });
+  return errors;
+}
+
+/** Картинки, которые загрузились с ошибкой (не путать с ленивыми, которые еще не грузились) */
+async function expectNoBrokenImages(page: Page) {
+  const broken = await page.evaluate(() =>
+    [...document.querySelectorAll("img")]
+      .filter((img) => img.getAttribute("src") && img.complete && img.naturalWidth === 0)
+      .map((img) => img.currentSrc || img.getAttribute("src")),
+  );
+  expect(broken, "На странице есть незагрузившиеся картинки").toEqual([]);
+}
+
 // =====================================================================
 // Хелперы: плеер
 // =====================================================================
 
 /**
- * <video> внутри контейнера плеера.
+ * Основное <video> плеера.
  * Не берем глобальный document.querySelector("video"): на странице продукта
- * может быть фоновое превью-видео, и проверки уйдут не в тот элемент.
+ * может быть фоновое превью-видео, а во время преролла в плеере есть еще #promoVideo.
  */
 function playerVideo(page: Page): Locator {
-  return page.locator(`${PLAYER_CONTAINER} video`).first();
+  return page.locator(`${PLAYER_CONTAINER} ${MAIN_VIDEO}`);
 }
 
 /** Ожидание готовности видео: элемент виден, метаданные загружены (duration > 0) */
@@ -127,23 +196,52 @@ async function expectVideoIsPlaying(video: Locator, minAdvanceSec = 1) {
   }
 }
 
-/** Перемотка на середину и проверка, что воспроизведение продолжилось с новой позиции */
-async function seekToMiddle(video: Locator) {
-  await test.step("Перемотка на середину", async () => {
+/** "27:08" / "1:02:03" -> секунды */
+function parseTimecode(text: string): number {
+  return text
+    .trim()
+    .split(":")
+    .reduce((acc, part) => acc * 60 + Number(part), 0);
+}
+
+/**
+ * Перемотка на середину кликом по полосе прогресса, как это делает пользователь.
+ * Проверяем, что позиция видео и время в интерфейсе плеера сместились к середине,
+ * и что воспроизведение продолжилось с новой позиции.
+ */
+async function seekToMiddle(page: Page, video: Locator) {
+  await test.step("Перемотка на середину кликом по полосе прогресса", async () => {
     const duration = await video.evaluate((v: HTMLVideoElement) => v.duration);
     expect(Number.isFinite(duration), "Длительность должна быть конечной (не live-поток)").toBe(true);
 
-    const target = duration / 2;
-    await video.evaluate((v: HTMLVideoElement, t: number) => {
-      v.currentTime = t;
-    }, target);
+    // Контролы плеера скрываются автоматически - показываем их наведением на плеер
+    await page.locator(PLAYER_CONTAINER).hover();
+    const bar = page.locator(PROGRESS_BAR);
+    await expect(bar, "Полоса прогресса не отображается").toBeVisible();
 
+    const box = await bar.boundingBox();
+    expect(box, "Не удалось определить размеры полосы прогресса").not.toBeNull();
+    await bar.click({ position: { x: box!.width / 2, y: box!.height / 2 } });
+
+    const position = () => video.evaluate((v: HTMLVideoElement) => v.currentTime / v.duration);
     await expect
-      .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), {
-        message: "Позиция воспроизведения не сместилась после перемотки",
+      .poll(position, {
+        message: "Позиция воспроизведения не сместилась к середине после клика по полосе прогресса",
         timeout: 5_000,
       })
-      .toBeGreaterThanOrEqual(target - 0.5);
+      .toBeGreaterThanOrEqual(SEEK_MIDDLE_MIN);
+    expect(await position(), "Перемотка ушла дальше середины").toBeLessThanOrEqual(SEEK_MIDDLE_MAX);
+
+    // Время в интерфейсе плеера тоже показывает середину. Плеер обновляет его не сразу
+    // после перемотки (может показывать старое "00:02"), поэтому ждем, а не читаем один раз
+    const shownPosition = async () => {
+      await page.locator(PLAYER_CONTAINER).hover(); // время видно только вместе с контролами
+      return parseTimecode(await page.locator(PROGRESS_CURRENT_TIME).innerText()) / duration;
+    };
+    await expect
+      .poll(shownPosition, { message: "Время в плеере не сместилось к середине видео", timeout: 5_000 })
+      .toBeGreaterThanOrEqual(SEEK_MIDDLE_MIN);
+    expect(await shownPosition(), "Время в плеере ушло дальше середины").toBeLessThanOrEqual(SEEK_MIDDLE_MAX);
 
     // Сегменты с новой позиции подгрузились и видео идет дальше
     await expectVideoIsPlaying(video);
@@ -208,7 +306,6 @@ async function closePlayer(page: Page) {
     const container = page.locator(PLAYER_CONTAINER);
 
     // Контролы плеера скрываются автоматически - показываем их наведением.
-    // Если контролы появляются только по клику, заменить hover на клик по #middle
     await container.hover();
 
     const closeBtn = page.getByRole("img", { name: "Close player" });
@@ -228,9 +325,14 @@ test.describe("[1] Неавторизованный пользователь", (
     await switchLanguageToRussian(page);
 
     await expect(page).toHaveURL(RU_URL_RE);
-    // Интерфейс реально переключился, а не только URL.
-    // TODO: заменить на надежный маркер, например html[lang="ru"], если он есть
-    await expect(page.getByText("Қазақша")).toBeHidden();
+    // Интерфейс реально переключился, а не только URL: язык документа и пункты меню
+    await expect(page.locator("html"), "Язык документа не русский").toHaveAttribute("lang", "ru");
+    for (const name of ["Фильмы", "Сериалы"]) {
+      await expect(
+        page.getByRole("link", { name, exact: true }).first(),
+        `В меню нет пункта "${name}" на русском`,
+      ).toBeVisible();
+    }
   });
 
   test("[1.2] Переход в карточку первого продукта", async ({ page }) => {
@@ -238,18 +340,19 @@ test.describe("[1] Неавторизованный пользователь", (
     await openFirstProduct(page);
 
     await expect(page).toHaveURL(PRODUCT_URL_RE);
-    // TODO: сверить маркер карточки (заголовок продукта)
-    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(productTitle(page)).toBeVisible();
   });
 
   test("[1.3] Просмотр линеек на главном экране, открытие карточек продуктов (фильмы/сериалы)", async ({ page }) => {
+    // Ошибки собираем с самого начала: и на главной, и в карточках
+    const errors = collectPageErrors(page);
     await switchLanguageToRussian(page);
 
-    // TODO: сверить, что все линейки имеют id с префиксом slider_
     // Исключаем заглушки загрузки: пока данные не пришли, на месте карточек рисуются
     // скелетоны с id="slider_skeleton", и они тоже подходят под [id^=slider_]
     const sliders = page.locator('[id^="slider_"]:not([id="slider_skeleton"])');
-    await expect(sliders, "На главной нет ни одной линейки").not.toHaveCount(0);
+    // Таймаут больше дефолтного: под нагрузкой скелетоны висят дольше 10 сек
+    await expect(sliders, "На главной нет ни одной линейки").not.toHaveCount(0, { timeout: 20_000 });
 
     // Запоминаем id линеек один раз. Обращение по индексу (nth) ненадежно: после goBack
     // страница перерисовывается, и nth(i) может указать на другой или удаленный элемент.
@@ -265,8 +368,12 @@ test.describe("[1] Неавторизованный пользователь", (
     ];
     expect(ids.length, "На главной нет ни одной линейки с фильмами/сериалами").toBeGreaterThan(0);
 
-    // Проверяем первые 3 линейки, чтобы тест не был слишком долгим
-    for (const [i, id] of ids.slice(0, 3).entries()) {
+    // Проверяем минимум 3 линейки и идем дальше, пока не откроем и фильм, и сериал
+    const MIN_SLIDERS = 3;
+    const openedTypes = new Set<"фильм" | "сериал">();
+    for (const [i, id] of ids.entries()) {
+      if (i >= MIN_SLIDERS && openedTypes.size === 2) break;
+
       await test.step(`Линейка ${i + 1} (${id}): отображение и открытие первой карточки`, async () => {
         const slider = page.locator(`[id="${id}"]`);
         // Без scrollIntoViewIfNeeded: click сам прокручивает к элементу и повторяет попытку,
@@ -279,15 +386,27 @@ test.describe("[1] Неавторизованный пользователь", (
         await firstCard.click();
 
         await page.waitForURL(PRODUCT_URL_RE);
-        await expect(page.locator("h1").first()).toBeVisible();
+        const title = productTitle(page);
+        await expect(title).toBeVisible();
+        await expect(title, "Карточка не фильма и не сериала").toHaveText(
+          new RegExp(`${MOVIE_TITLE_RE.source}|${SERIES_TITLE_RE.source}`),
+        );
+        openedTypes.add(MOVIE_TITLE_RE.test(await title.innerText()) ? "фильм" : "сериал");
+
+        // Карточка загрузилась без ошибок: постер и прочие картинки на месте
+        await page.waitForLoadState("load");
+        await expectNoBrokenImages(page);
 
         await page.goBack();
         await page.waitForURL(RU_URL_RE);
       });
     }
+
+    expect([...openedTypes].sort(), "Не удалось открыть и фильм, и сериал из линеек").toEqual(["сериал", "фильм"]);
+    expect(errors, "Ошибки при просмотре линеек и карточек").toEqual([]);
   });
 
-  test("[1.4] Воспроизведение трейлеров", async ({ page }) => {
+  test("[1.4] Воспроизведение трейлера с перемоткой до середины видео", async ({ page }) => {
     await switchLanguageToRussian(page);
     await openFirstProduct(page);
 
@@ -298,27 +417,32 @@ test.describe("[1] Неавторизованный пользователь", (
     const video = playerVideo(page);
     await waitForVideoReady(video);
     await expectVideoIsPlaying(video);
-    await seekToMiddle(video);
+    await seekToMiddle(page, video);
     await closePlayer(page);
   });
 
-  test("[1.5] Воспроизведение продукта (бесплатная серия сериала)", async ({ page }) => {
+  test("[1.5] Воспроизведение продукта (бесплатная серия сериала) с перемоткой видео до середины", async ({ page }) => {
     await switchLanguageToRussian(page);
-    // TODO: открывать заведомо сериал с бесплатной серией (по id/URL из тестовых данных),
-    // сейчас открывается первый продукт линейки "Оригиналы"
-    await openFirstProduct(page);
+
+    await test.step("Открытие сериала с бесплатной серией", async () => {
+      await page.goto(FREE_EPISODE_SERIES_URL, { waitUntil: "domcontentloaded" });
+      await expect(productTitle(page), "Продукт из тестовых данных - не сериал").toHaveText(SERIES_TITLE_RE);
+    });
 
     const playFreeBtn = page.getByText("Смотреть бесплатно", { exact: true }).first();
-    await expect(playFreeBtn).toBeVisible();
+    await expect(playFreeBtn, "У сериала нет бесплатной серии").toBeVisible();
     // Без force: перекрывающий кнопку оверлей - это баг, тест должен на нем падать
     await playFreeBtn.click();
 
     await skipPrerollIfPresent(page);
 
+    // В плеере запущена именно серия сериала: "Черная икра: 1 серия, 1 сезон"
+    await expect(page.locator(PLAYER_TITLE).first(), "В плеере запущена не серия сериала").toHaveText(/серия/);
+
     const video = playerVideo(page);
     await waitForVideoReady(video);
     await expectVideoIsPlaying(video);
-    await seekToMiddle(video);
+    await seekToMiddle(page, video);
     await closePlayer(page);
   });
 });
