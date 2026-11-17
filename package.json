@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:guest": "playwright test tests/1-guest.spec.ts",
+    "test:auth": "playwright test tests/2-auth.spec.ts",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vidadi87/Playwright-TypeScript.git"
@@ -18,6 +24,7 @@
   "homepage": "https://github.com/vidadi87/Playwright-TypeScript#readme",
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "@types/node": "^26.2.0"
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.3"
   }
 }

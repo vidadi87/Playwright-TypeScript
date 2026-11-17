@@ -9,8 +9,10 @@ export default defineConfig({
   /* Тесты независимы друг от друга: у каждого свой чистый контекст браузера */
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  /* Сайт боевой и под нагрузкой бывает медленным: 1 повтор локально, 2 в CI */
+  retries: process.env.CI ? 2 : 1,
+  /* Не больше 2 параллельных браузеров: при большем числе сайт тормозит и тесты падают по таймаутам */
+  workers: process.env.CI ? 1 : 2,
 
   /* Общий таймаут теста: видео-тесты длиннее дефолтных 30 сек */
   timeout: 60_000,
