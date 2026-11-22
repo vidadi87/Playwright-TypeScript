@@ -1,4 +1,9 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+/* Секреты тестового Gmail (TEST_EMAIL, GMAIL_APP_PASSWORD) — из .env, см. .env.example.
+   В CI те же переменные задаются секретами окружения */
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 /**
  * See https://playwright.dev/docs/test-configuration.
