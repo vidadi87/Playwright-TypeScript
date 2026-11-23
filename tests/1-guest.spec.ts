@@ -35,21 +35,14 @@ test.describe("[1] Неавторизованный пользователь", (
       if (i >= MIN_SLIDERS && openedTypes.size === 2) break;
 
       await test.step(`Линейка ${i + 1} (${id}): открытие первой карточки`, async () => {
-        const card = ruHome.firstProductCard(id);
-        await expect(card).toBeVisible();
-        await card.click();
-
-        await page.waitForURL(PRODUCT_URL_RE);
-        await expect(product.title, "Карточка не фильма и не сериала").toHaveText(
-          new RegExp(`${MOVIE_TITLE_RE.source}|${SERIES_TITLE_RE.source}`),
-        );
-        openedTypes.add(MOVIE_TITLE_RE.test(await product.title.innerText()) ? "фильм" : "сериал");
-
-        await page.waitForLoadState("load");
-        await expectNoBrokenImages(page);
-
-        await page.goBack();
-        await page.waitForURL(RU_URL_RE);
+        await ruHome.openFirstCardAndBack(id, RU_URL_RE, async () => {
+          await expect(product.title, "Карточка не фильма и не сериала").toHaveText(
+            new RegExp(`${MOVIE_TITLE_RE.source}|${SERIES_TITLE_RE.source}`),
+          );
+          openedTypes.add(MOVIE_TITLE_RE.test(await product.title.innerText()) ? "фильм" : "сериал");
+          await page.waitForLoadState("load");
+          await expectNoBrokenImages(page);
+        });
       });
     }
 
@@ -131,26 +124,12 @@ test.describe("[1] Неавторизованный пользователь", (
     });
   });
 
-  test("[1.6.1] Навигация по основным разделам из меню гостем", async ({ page, ruHome, pageErrors }) => {
+  test("[1.6.1] Навигация по основным разделам из меню гостем", async ({ page, ruHome, sectionPage, pageErrors }) => {
     for (const section of MENU_SECTIONS) {
       await test.step(`Раздел «${section.menu}»`, async () => {
         await page.goto("/ru", { waitUntil: "domcontentloaded" });
         await ruHome.header.menuLink(section.menu).click();
-        await expect(page).toHaveURL(section.url);
-
-        if (section.heading) {
-          await expect(page.locator("h1").first(), "Заголовок раздела").toHaveText(section.heading);
-        }
-
-        // Карточки контента; для раздела, который бывает пустым, допустим текст «пусто»
-        const cards = page.locator(section.cards);
-        const emptyText = section.emptyText ? page.getByText(section.emptyText) : null;
-        await expect
-          .poll(async () => (await cards.count()) > 0 || (emptyText !== null && (await emptyText.isVisible())), {
-            message: `В разделе «${section.menu}» нет карточек контента`,
-            timeout: 15_000,
-          })
-          .toBe(true);
+        await sectionPage.expectOpened(section);
       });
     }
 
@@ -176,12 +155,7 @@ test.describe("[1] Неавторизованный пользователь", (
       // Персона берётся из карточки в момент теста, чтобы не зависеть от изменений каталога
       const { name, href } = await test.step("Первый актёр из карточки сериала", async () => {
         await product.open(PRODUCTS.freeEpisodeSeries.url);
-        const actor = product.actorLinks.first();
-        await expect(actor, "В карточке нет блока «Актеры»").toBeAttached();
-        return {
-          name: (await actor.innerText()).trim().split("\n")[0].trim(),
-          href: (await actor.getAttribute("href"))!,
-        };
+        return product.firstActor();
       });
 
       await page.goto("/ru", { waitUntil: "domcontentloaded" });

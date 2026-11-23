@@ -28,7 +28,8 @@ test.describe("[2] Авторизация по почте", () => {
    * Минус: тесты зависят друг от друга — если 2.2 упадёт, 2.1 не запустится (mode: "serial").
    */
   test.describe("[2.1–2.2] Вход по коду из письма", () => {
-    test.describe.configure({ mode: "serial", timeout: 120_000 });
+    // Без повторов: повтор группы заново запросил бы код — лишнее письмо и риск капчи
+    test.describe.configure({ mode: "serial", timeout: 120_000, retries: 0 });
     test.skip(!hasTestAccount(), "Нет TEST_EMAIL и GMAIL_APP_PASSWORD в .env (см. .env.example)");
 
     let page: Page;
@@ -38,6 +39,10 @@ test.describe("[2] Авторизация по почте", () => {
     let code: string;
 
     test.beforeAll(async ({ browser }) => {
+      // Хук: открытие страницы входа, подключение к ящику (до 3 попыток), ожидание письма (до 60 сек)
+      test.setTimeout(180_000);
+      // Сначала ящик: если IMAP недоступен, падаем сразу, не тратя запрос кода
+      mailbox = await Mailbox.connect();
       // Страница создаётся вручную, чтобы жить между тестами группы; настройки (baseURL, локаль)
       // Playwright подставляет из конфига
       page = await browser.newPage();
@@ -50,7 +55,6 @@ test.describe("[2] Авторизация по почте", () => {
       await auth.expectOpened();
       await auth.switchToEmail();
 
-      mailbox = await Mailbox.connect();
       const since = await mailbox.checkpoint();
       await auth.requestCode(testAccount().user);
       await auth.failIfCaptcha();
@@ -89,6 +93,7 @@ test.describe("[2] Авторизация по почте", () => {
         await header.expectLoggedIn();
       });
     });
+
   });
 
   test.describe("[2.3] Некорректный email", () => {

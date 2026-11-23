@@ -1,11 +1,16 @@
 import { test as base, expect, Page } from "@playwright/test";
+import { AccountMenu } from "../components/AccountMenu";
 import { Header } from "../components/Header";
+import { LanguagePopup } from "../components/LanguagePopup";
 import { Player } from "../components/Player";
 import { AuthPage } from "../pages/AuthPage";
 import { HomePage } from "../pages/HomePage";
 import { ProductPage } from "../pages/ProductPage";
+import { ProfilesPage } from "../pages/ProfilesPage";
 import { SearchResultsPage } from "../pages/SearchResultsPage";
+import { SectionPage } from "../pages/SectionPage";
 import { IGNORED_ERROR_URLS, SITE_URL_RE } from "../test-data/known-errors";
+import { ProfileApi } from "../utils/profileApi";
 
 /**
  * Ошибки страницы с начала теста:
@@ -36,6 +41,12 @@ type Fixtures = {
   player: Player;
   auth: AuthPage;
   searchResults: SearchResultsPage;
+  sectionPage: SectionPage;
+  accountMenu: AccountMenu;
+  languagePopup: LanguagePopup;
+  profiles: ProfilesPage;
+  /** Настройки профилей с сервера (язык интерфейса, аватар) */
+  profileApi: ProfileApi;
 };
 
 export const test = base.extend<Fixtures>({
@@ -59,6 +70,11 @@ export const test = base.extend<Fixtures>({
   player: async ({ page }, use) => use(new Player(page)),
   auth: async ({ page }, use) => use(new AuthPage(page)),
   searchResults: async ({ page }, use) => use(new SearchResultsPage(page)),
+  sectionPage: async ({ page }, use) => use(new SectionPage(page)),
+  accountMenu: async ({ page }, use) => use(new AccountMenu(page)),
+  languagePopup: async ({ page }, use) => use(new LanguagePopup(page)),
+  profiles: async ({ page }, use) => use(new ProfilesPage(page)),
+  profileApi: async ({ page }, use) => use(new ProfileApi(page)),
 });
 
 export { expect };

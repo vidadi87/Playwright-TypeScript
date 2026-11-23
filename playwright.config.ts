@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+import { AUTH_STATE_FILE } from "./test-data/auth";
 
 /* Секреты тестового Gmail (TEST_EMAIL, GMAIL_APP_PASSWORD) — из .env, см. .env.example.
    В CI те же переменные задаются секретами окружения */
@@ -8,6 +9,14 @@ if (existsSync(".env")) process.loadEnvFile(".env");
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
+/* Брендированный Chrome: в Chromium из комплекта Playwright нет кодеков H.264/AAC.
+   Автовоспроизведение видео без жеста пользователя */
+const CHROME = {
+  ...devices["Desktop Chrome"],
+  channel: "chrome",
+  launchOptions: { args: ["--autoplay-policy=no-user-gesture-required"] },
+};
+
 export default defineConfig({
   testDir: "./tests",
 
@@ -44,21 +53,34 @@ export default defineConfig({
   },
 
   projects: [
+    /* Вход в тестовый аккаунт для разделов 3–4 (сессия переиспользуется, пока действует) */
+    { name: "setup", testMatch: /auth\.setup\.ts/, use: CHROME },
+    /* Гость и форма входа. Зависимость от setup — чтобы запросы кода из 2.x не пересекались по времени
+       со входом в setup (один ящик — один ожидаемый код) */
     {
-      /* Брендированный Chrome: в Chromium из комплекта Playwright нет кодеков H.264/AAC */
       name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        channel: "chrome",
-        launchOptions: {
-          /* Разрешаем автовоспроизведение видео без жеста пользователя */
-          args: ["--autoplay-policy=no-user-gesture-required"],
-        },
-      },
+      testMatch: /(1-guest|2-auth)\.spec\.ts/,
+      dependencies: ["setup"],
+      use: CHROME,
     },
-
-    /* Остальные браузеры подключим позже */
-    // { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    // { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    /* Авторизованный пользователь (разделы 3–4) с сохранённой сессией */
+    {
+      name: "chromium-authorized",
+      testMatch: /(3|4)-.*\.spec\.ts/,
+      testIgnore: /-account-changes\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...CHROME, storageState: AUTH_STATE_FILE },
+    },
+    /* Язык, аватар, «Буду смотреть» и оценки меняются в профиле на сервере: параллельно идущие тесты
+       увидели бы чужие изменения. Поэтому эти тесты идут по одному, после остальных тестов
+       авторизованного пользователя */
+    {
+      name: "chromium-account-changes",
+      testMatch: /-account-changes\.spec\.ts/,
+      dependencies: ["chromium-authorized"],
+      fullyParallel: false,
+      workers: 1,
+      use: { ...CHROME, storageState: AUTH_STATE_FILE },
+    },
   ],
 });

@@ -1,3 +1,6 @@
+/** Сохранённая сессия тестового аккаунта для разделов 3–4 (папка в .gitignore) */
+export const AUTH_STATE_FILE = "playwright/.auth/user.json";
+
 /** Негативные данные формы входа по почте (TC-2.3.1, TC-2.3.2) */
 export const INVALID_EMAILS = [
   { value: "user@", reason: "нет домена" },

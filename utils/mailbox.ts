@@ -13,17 +13,35 @@ import { OTP_EMAIL } from "../test-data/auth";
 export class Mailbox {
   private constructor(private readonly client: ImapFlow) {}
 
-  static async connect(): Promise<Mailbox> {
+  /**
+   * Подключение к Gmail по IMAP. Изредка подключение зависает без ошибки — поэтому таймауты
+   * и несколько попыток, иначе весь лимит времени теста уходит на ожидание.
+   */
+  static async connect({ attempts = 3, timeoutMs = 15_000 } = {}): Promise<Mailbox> {
     const { user, pass } = testAccount();
-    const client = new ImapFlow({
-      host: "imap.gmail.com",
-      port: 993,
-      secure: true,
-      auth: { user, pass },
-      logger: false,
-    });
-    await client.connect();
-    return new Mailbox(client);
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const client = new ImapFlow({
+        host: "imap.gmail.com",
+        port: 993,
+        secure: true,
+        auth: { user, pass },
+        logger: false,
+        connectionTimeout: timeoutMs,
+        greetingTimeout: timeoutMs,
+        socketTimeout: 60_000,
+      });
+      try {
+        await withTimeout(client.connect(), timeoutMs);
+        return new Mailbox(client);
+      } catch (error) {
+        lastError = error;
+        client.close();
+      }
+    }
+    throw new Error(
+      `Не удалось подключиться к Gmail по IMAP за ${attempts} попытки: ${(lastError as Error)?.message ?? lastError}`,
+    );
   }
 
   /** Метка «до запроса кода»: письма, пришедшие после неё, получат UID не меньше возвращённого */
@@ -69,6 +87,22 @@ export class Mailbox {
       lock.release();
     }
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`нет ответа за ${ms / 1000} сек`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 /** Учётные данные тестового ящика из окружения. Пробелы в пароле приложения (как его показывает Google) убираем */

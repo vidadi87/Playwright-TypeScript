@@ -29,3 +29,19 @@ export const MENU_SECTIONS: Section[] = [
   },
   { menu: "Новинки", url: /\/ru\/collection\/newreleases$/, heading: /^Новинки\s+смотреть онлайн$/, cards: WATCH_CARDS },
 ];
+
+/**
+ * Разделы меню взрослого профиля авторизованного пользователя (TC-4.2.1.1 – TC-4.2.3.1).
+ * Заголовки короче, чем у гостя: «Фильмы» вместо «Фильмы смотреть онлайн»
+ */
+export const ADULT_SECTIONS: Section[] = [
+  { menu: "Фильмы", url: /\/ru\/movies$/, heading: /^Фильмы$/, cards: WATCH_CARDS },
+  { menu: "Сериалы", url: /\/ru\/series$/, heading: /^Сериалы$/, cards: WATCH_CARDS },
+  { menu: "Детям", url: /\/ru\/animation$/, heading: /^Мультфильмы$/, cards: WATCH_CARDS },
+];
+
+/** Разделы меню детского профиля (TC-4.2.3.2, TC-4.2.4.1) */
+export const KIDS_SECTIONS: Section[] = [
+  { menu: "Мультфильмы", url: /\/ru\/animation$/, heading: /^Мультфильмы$/, cards: WATCH_CARDS },
+  { menu: "Мультсериалы", url: /\/ru\/series\?type=animation$/, heading: /^Сериалы$/, cards: WATCH_CARDS },
+];

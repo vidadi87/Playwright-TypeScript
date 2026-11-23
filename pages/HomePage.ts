@@ -1,5 +1,6 @@
 import { Locator, Page, expect, test } from "@playwright/test";
 import { Header } from "../components/Header";
+import { PRODUCT_URL_RE } from "./ProductPage";
 
 /** URL русской версии: /ru, /ru/, /ru?…, /ru#… */
 export const RU_URL_RE = /\/ru(\/|\?|#|$)/;
@@ -27,18 +28,23 @@ export class HomePage {
       await this.page.goto("/ru", { waitUntil: "domcontentloaded" });
       // Баннер подгружается позже остальной страницы и перекрывает контент
       await expect(this.languageSaveButton, "Баннер выбора языка не появился").toBeVisible({ timeout: 20_000 });
-      const kazakh = this.page.getByText("Қазақша", { exact: true });
-      if (await kazakh.isVisible()) {
-        await kazakh.click();
-        await this.page.getByText("Русский", { exact: true }).click();
-      }
-      await this.languageSaveButton.click();
-      await expect(this.languageSaveButton).toBeHidden();
+      await this.chooseRussianInBanner();
       // Сайт может дозавершать навигацию после сохранения: ждём, пока адрес и язык устоятся на русском
       await expect(this.page).toHaveURL(RU_URL_RE);
       await expect(this.page.locator("html")).toHaveAttribute("lang", "ru");
       await this.page.waitForLoadState("domcontentloaded");
     });
+  }
+
+  /** Баннер выбора языка: выбрать «Русский» (если предвыбран казахский) и сохранить */
+  async chooseRussianInBanner() {
+    const kazakh = this.page.getByText("Қазақша", { exact: true });
+    if (await kazakh.isVisible()) {
+      await kazakh.click();
+      await this.page.getByText("Русский", { exact: true }).click();
+    }
+    await this.languageSaveButton.click();
+    await expect(this.languageSaveButton).toBeHidden();
   }
 
   /**
@@ -85,6 +91,20 @@ export class HomePage {
         ),
       ),
     ];
+  }
+
+  /**
+   * Открыть первую карточку линейки, выполнить проверки карточки и вернуться на главную.
+   * home — адрес главной, на которую возвращаемся (/ru или /ru/kids)
+   */
+  async openFirstCardAndBack(sliderId: string, home: RegExp, checkCard: () => Promise<void>) {
+    const card = this.firstProductCard(sliderId);
+    await expect(card).toBeVisible();
+    await card.click();
+    await this.page.waitForURL(PRODUCT_URL_RE);
+    await checkCard();
+    await this.page.goBack();
+    await this.page.waitForURL(home);
   }
 
   /** Первая карточка продукта в линейке (не «Смотреть все» и не прочие ссылки) */

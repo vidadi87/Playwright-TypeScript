@@ -36,7 +36,7 @@ export class AuthPage {
     this.codeCellsWithError = page.locator('[class*="CodeField_codeCell"][class*="CodeField_error"]');
     // Ошибка неверного кода — всплывающее уведомление справа внизу, не текст в форме
     this.wrongCodeToast = page.getByText(AUTH_MESSAGES.wrongCode, { exact: true });
-    // Появляется на экране ввода кода при частых запросах кода
+    // Появляется при частых запросах кода: на форме почты или на экране ввода кода
     this.captchaInput = page.getByRole("textbox", { name: "Введите число с картинки" });
   }
 
@@ -63,11 +63,11 @@ export class AuthPage {
     await this.submitButton.click();
   }
 
-  /** Отправка почты и ожидание экрана ввода кода */
+  /** Отправка почты и ожидание экрана ввода кода (капча бывает и на форме почты, до отправки кода) */
   async requestCode(email: string) {
     await test.step("Запрос кода на почту", async () => {
       await this.submitEmail(email);
-      await expect(this.codeInput, "Не открылся экран ввода кода").toBeAttached({ timeout: 15_000 });
+      await this.waitForCodeResult(this.codeInput, "Не открылся экран ввода кода", { attached: true });
     });
   }
 
@@ -88,13 +88,14 @@ export class AuthPage {
    * Ждёт ожидаемый результат ввода кода (уведомление, признак входа). Если вместо него сайт
    * показал капчу — падает с понятным сообщением.
    */
-  async waitForCodeResult(expected: Locator, message: string) {
+  async waitForCodeResult(expected: Locator, message: string, { attached = false } = {}) {
     let captcha = false;
     await expect
       .poll(
         async () => {
           captcha = await this.captchaInput.isVisible();
-          return captcha || (await expected.isVisible());
+          // Поле кода скрытое (поверх него клетки) — для него достаточно наличия в DOM
+          return captcha || (attached ? (await expected.count()) > 0 : await expected.isVisible());
         },
         { message, timeout: 15_000 },
       )
