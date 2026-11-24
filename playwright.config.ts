@@ -46,10 +46,11 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
 
-    /* Артефакты для разбора падений */
-    trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    /* Артефакты для разбора падений. В CI выключены: отчёт публичного репозитория может скачать
+       любой пользователь GitHub, а на скриншотах, видео и трейсах входа и страницы «Аккаунт» — адрес почты */
+    trace: process.env.CI ? "off" : "retain-on-failure",
+    screenshot: process.env.CI ? "off" : "only-on-failure",
+    video: process.env.CI ? "off" : "retain-on-failure",
   },
 
   projects: [

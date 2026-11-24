@@ -1,0 +1,67 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Тесты идут на боевом сайте, поэтому запускаются только вручную: Actions → Tests → Run workflow
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Набор тестов: guest — гость, без почты; all — весь набор (2 письма с кодом на тестовый Gmail)"
+        type: choice
+        options: [guest, all]
+        default: guest
+
+jobs:
+  checks:
+    name: Typecheck, ESLint, Prettier
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+
+  tests:
+    name: Playwright (${{ inputs.suite }})
+    if: github.event_name == 'workflow_dispatch'
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Google Chrome, а не Chromium из комплекта Playwright: в Chromium нет кодеков H.264/AAC для видео
+      - run: npx playwright install --with-deps chrome
+
+      - name: Тесты гостя
+        if: inputs.suite == 'guest'
+        # --no-deps: без входа в аккаунт (проект setup), письма с кодом не отправляются
+        run: npx playwright test tests/1-guest.spec.ts --project=chromium --no-deps
+
+      - name: Весь набор
+        if: inputs.suite == 'all'
+        # Без секретов тесты со входом пропускаются, остальные идут
+        env:
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: npx playwright test
+
+      - name: HTML-отчёт
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-${{ inputs.suite }}
+          path: playwright-report/
+          retention-days: 14
