@@ -48,10 +48,13 @@ test.describe("[4] Навигация", () => {
       const openedTypes = new Set<"фильм" | "сериал">();
       for (const [i, id] of ids.entries()) {
         if (i >= MIN_SLIDERS && openedTypes.size === 2) break;
+
         await test.step(`Линейка ${i + 1} (${id}): открытие первой карточки`, async () => {
           await home.openFirstCardAndBack(id, ADULT_HOME_RE, async () => {
             // У авторизованного пользователя в карточке нет h1: тип продукта — раздел в хлебных крошках
-            await expect(product.breadcrumbs, "Карточка не фильма и не сериала").toHaveText(/^Главная\s*(Фильмы|Сериалы)/);
+            await expect(product.breadcrumbs, "Карточка не фильма и не сериала").toHaveText(
+              /^Главная\s*(Фильмы|Сериалы)/,
+            );
             openedTypes.add(/^Главная\s*Фильмы/.test(await product.breadcrumbs.innerText()) ? "фильм" : "сериал");
             await page.waitForLoadState("load");
             await expectNoBrokenImages(page);
@@ -205,7 +208,10 @@ test.describe("[4] Навигация", () => {
         await accountMenu.open();
         await accountMenu.item("Подписка").click();
         await expect(page).toHaveURL(/\/account\/subscriptions$/);
-        await expect(page.getByText("Подписки", { exact: true }).first(), "Нет хлебных крошек «Подписки»").toBeVisible();
+        await expect(
+          page.getByText("Подписки", { exact: true }).first(),
+          "Нет хлебных крошек «Подписки»",
+        ).toBeVisible();
         await expect(page.getByText("Оформить подписку").first(), "Нет «Оформить подписку»").toBeVisible();
       });
 

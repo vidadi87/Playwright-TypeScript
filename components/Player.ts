@@ -81,7 +81,7 @@ export class Player {
         networkState: v.networkState,
         error: v.error ? v.error.code : null,
       }));
-      throw new Error(`${(e as Error).message}\nСостояние video: ${JSON.stringify(state)}`);
+      throw new Error(`${(e as Error).message}\nСостояние video: ${JSON.stringify(state)}`, { cause: e });
     }
   }
 

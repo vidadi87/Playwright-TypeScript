@@ -31,7 +31,10 @@ export class LanguagePopup {
       await menu.languageItem.click();
       await expect(this.root, "Окно «Язык интерфейса» не открылось").toBeVisible();
       await this.selected.click();
-      await this.root.locator('[class*="Input_start-select-options__item"]').filter({ hasText: new RegExp(`^${code}$`) }).click();
+      await this.root
+        .locator('[class*="Input_start-select-options__item"]')
+        .filter({ hasText: new RegExp(`^${code}$`) })
+        .click();
       await this.saveButton.click();
       await expect(this.root, "Окно «Язык интерфейса» не закрылось").toBeHidden({ timeout: 10_000 });
       // После сохранения сайт сам переходит на адрес нового языка — дожидаемся, чтобы не перебить переход

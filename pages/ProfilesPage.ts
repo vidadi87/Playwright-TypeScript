@@ -29,7 +29,10 @@ export class ProfilesPage {
   }
 
   profile(name: string): Locator {
-    return this.page.locator('[class*="ProfileItem_profileItem"]').filter({ hasText: new RegExp(`^${name}$`) }).first();
+    return this.page
+      .locator('[class*="ProfileItem_profileItem"]')
+      .filter({ hasText: new RegExp(`^${name}$`) })
+      .first();
   }
 
   async expectOpened() {
@@ -90,7 +93,9 @@ export class ProfilesPage {
       const chosen = await this.chooseAvatar(target.key ? target : { differentFrom: before });
       await this.save();
       await expect
-        .poll(() => this.profileAvatarKey(profileName), { message: `В списке профилей у «${profileName}» не новая картинка` })
+        .poll(() => this.profileAvatarKey(profileName), {
+          message: `В списке профилей у «${profileName}» не новая картинка`,
+        })
         .toBe(chosen);
       await this.close();
       return { before, chosen };

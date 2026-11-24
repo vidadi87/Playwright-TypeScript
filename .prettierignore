@@ -1,0 +1,7 @@
+node_modules/
+playwright-report/
+test-results/
+playwright/
+package-lock.json
+# Markdown форматируем вручную: Prettier выравнивает таблицы пробелами и раздувает дифф
+*.md

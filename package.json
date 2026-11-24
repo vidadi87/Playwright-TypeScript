@@ -8,7 +8,11 @@
     "test:guest": "playwright test tests/1-guest.spec.ts",
     "test:auth": "playwright test tests/2-auth.spec.ts",
     "report": "playwright show-report",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",
@@ -23,11 +27,17 @@
   },
   "homepage": "https://github.com/vidadi87/Playwright-TypeScript#readme",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/mailparser": "^3.9.0",
     "@types/node": "^26.2.0",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-playwright": "^2.12.2",
     "imapflow": "^2.12.2",
     "mailparser": "^3.15.0",
-    "typescript": "^5.9.3"
+    "prettier": "^3.10.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.74.0"
   }
 }

@@ -60,8 +60,20 @@ test.describe("[4] Навигация: изменения профиля", () =>
   test.skip(!hasTestAccount(), "Нет TEST_EMAIL и GMAIL_APP_PASSWORD в .env (см. .env.example)");
 
   const CASES: Array<{ profile: Profile; add: string; remove: string; url: string; name: string }> = [
-    { profile: "adult", add: "4.5.1.1", remove: "4.5.2.1", url: AUTHORIZED_PRODUCTS.adultFavorite.url, name: "во взрослом" },
-    { profile: "kids", add: "4.5.1.2", remove: "4.5.2.2", url: AUTHORIZED_PRODUCTS.kidsFavorite.url, name: "в детском" },
+    {
+      profile: "adult",
+      add: "4.5.1.1",
+      remove: "4.5.2.1",
+      url: AUTHORIZED_PRODUCTS.adultFavorite.url,
+      name: "во взрослом",
+    },
+    {
+      profile: "kids",
+      add: "4.5.1.2",
+      remove: "4.5.2.2",
+      url: AUTHORIZED_PRODUCTS.kidsFavorite.url,
+      name: "в детском",
+    },
   ];
 
   test.describe("[4.5] Буду смотреть", () => {
@@ -73,11 +85,14 @@ test.describe("[4] Навигация: изменения профиля", () =>
         product,
       }) => {
         await openProduct(page, header, accountMenu, product, c.profile, c.url);
+
         await test.step("Предусловие: продукта нет в «Буду смотреть»", () => product.setFavorite(false));
 
         try {
           await product.favoritesIcon.click();
-          await expect.poll(() => product.isFavorite(), { message: "Иконка «Буду смотреть» не стала активной" }).toBe(true);
+          await expect
+            .poll(() => product.isFavorite(), { message: "Иконка «Буду смотреть» не стала активной" })
+            .toBe(true);
 
           expect(await favoritesList(page, header), "Продукта нет в списке «Буду смотреть»").toContain(c.url);
         } finally {
@@ -95,12 +110,16 @@ test.describe("[4] Навигация: изменения профиля", () =>
         product,
       }) => {
         await openProduct(page, header, accountMenu, product, c.profile, c.url);
+
         await test.step("Предусловие: продукт в «Буду смотреть»", () => product.setFavorite(true));
+
         const before = await favoritesList(page, header);
         await product.open(c.url, { authorized: true });
 
         await product.favoritesIcon.click();
-        await expect.poll(() => product.isFavorite(), { message: "Иконка «Буду смотреть» не стала неактивной" }).toBe(false);
+        await expect
+          .poll(() => product.isFavorite(), { message: "Иконка «Буду смотреть» не стала неактивной" })
+          .toBe(false);
 
         const after = await favoritesList(page, header);
         expect(after, "Продукт остался в списке «Буду смотреть»").not.toContain(c.url);

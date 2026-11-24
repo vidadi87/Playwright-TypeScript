@@ -152,6 +152,7 @@ test.describe("[1] Неавторизованный пользователь", (
 
     test("[1.7.2.1] Поиск персоны гостем", async ({ page, ruHome, product, searchResults }) => {
       void ruHome;
+
       // Персона берётся из карточки в момент теста, чтобы не зависеть от изменений каталога
       const { name, href } = await test.step("Первый актёр из карточки сериала", async () => {
         await product.open(PRODUCTS.freeEpisodeSeries.url);

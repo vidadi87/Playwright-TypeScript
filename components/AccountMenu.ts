@@ -36,7 +36,10 @@ export class AccountMenu {
 
   /** Профиль в списке меню (активный профиль в списке не показывается) */
   profile(name: string): Locator {
-    return this.page.locator('[class*="ProfileItem_profileItem"]').filter({ hasText: new RegExp(`^${name}$`) }).first();
+    return this.page
+      .locator('[class*="ProfileItem_profileItem"]')
+      .filter({ hasText: new RegExp(`^${name}$`) })
+      .first();
   }
 
   /** Пункт меню по точному тексту («Подписка», «Аккаунт», «Управление профилями» …) */

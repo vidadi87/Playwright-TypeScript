@@ -50,7 +50,11 @@ test.describe("[3] Авторизованный пользователь: изм
         await profileApi.expectInterfaceLanguage(PROFILES.main, "en", "Язык основного профиля не сохранился");
 
         await accountMenu.switchTo(PROFILES.kids);
-        await profileApi.expectInterfaceLanguage(PROFILES.kids, "ru", "Язык детского профиля изменился вместе с основным");
+        await profileApi.expectInterfaceLanguage(
+          PROFILES.kids,
+          "ru",
+          "Язык детского профиля изменился вместе с основным",
+        );
         await profileApi.openHomeInProfileLanguage();
         await expect(header.menuLink("Мультфильмы"), "Детское меню не на русском").toBeVisible();
       } finally {
@@ -60,7 +64,11 @@ test.describe("[3] Авторизованный пользователь: изм
             await accountMenu.switchTo(PROFILES.main);
           }
           await setProfileLanguage(profileApi, languagePopup, "РУС");
-          await profileApi.expectInterfaceLanguage(PROFILES.main, "ru", "Язык основного профиля не вернулся на русский");
+          await profileApi.expectInterfaceLanguage(
+            PROFILES.main,
+            "ru",
+            "Язык основного профиля не вернулся на русский",
+          );
         });
       }
     });
@@ -78,7 +86,11 @@ test.describe("[3] Авторизованный пользователь: изм
         await expect(header.menuLink("Мультфильмы"), "В детском меню остались пункты на русском").toHaveCount(0);
 
         await accountMenu.switchTo(PROFILES.main);
-        await profileApi.expectInterfaceLanguage(PROFILES.main, "ru", "Язык основного профиля изменился вместе с детским");
+        await profileApi.expectInterfaceLanguage(
+          PROFILES.main,
+          "ru",
+          "Язык основного профиля изменился вместе с детским",
+        );
         await profileApi.openHomeInProfileLanguage();
         await expect(header.menuLink("Фильмы"), "Меню основного профиля не на русском").toBeVisible();
       } finally {
@@ -115,7 +127,7 @@ test.describe("[3] Авторизованный пользователь: изм
       }
     });
 
-    test("[3.5.2] Изменение аватарки в детском профиле", async ({ page, accountMenu, profiles, profileApi }) => {
+    test("[3.5.2] Изменение аватарки в детском профиле", async ({ accountMenu, profiles, profileApi }) => {
       await profileApi.openHomeInProfileLanguage();
       const openProfiles = profilesOpener(accountMenu);
 

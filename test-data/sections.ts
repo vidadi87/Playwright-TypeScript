@@ -27,7 +27,12 @@ export const MENU_SECTIONS: Section[] = [
     cards: 'a[href^="/ru/sport/"]',
     emptyText: /Новых трансляций пока нет/,
   },
-  { menu: "Новинки", url: /\/ru\/collection\/newreleases$/, heading: /^Новинки\s+смотреть онлайн$/, cards: WATCH_CARDS },
+  {
+    menu: "Новинки",
+    url: /\/ru\/collection\/newreleases$/,
+    heading: /^Новинки\s+смотреть онлайн$/,
+    cards: WATCH_CARDS,
+  },
 ];
 
 /**

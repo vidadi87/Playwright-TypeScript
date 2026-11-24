@@ -85,6 +85,7 @@
 
 - [Playwright Test](https://playwright.dev) + TypeScript, браузер - Google Chrome (в Chromium из комплекта Playwright нет кодеков H.264/AAC для видео)
 - Page Object + фикстуры Playwright
+- ESLint (`typescript-eslint` с проверкой типов, `eslint-plugin-playwright`) + Prettier
 - [imapflow](https://imapflow.com) + [mailparser](https://nodemailer.com/extras/mailparser/) - чтение OTP-кода из тестового Gmail по IMAP
 - Чек-лист и тест-кейсы - Notion
 
@@ -124,6 +125,8 @@ npm test               # все тесты
 npm run test:guest     # только гость (без почты)
 npm run report         # HTML-отчёт последнего прогона
 npm run typecheck      # проверка типов
+npm run lint           # ESLint: в том числе пропущенный await
+npm run format         # Prettier: оформление кода
 ```
 
 - Без `.env` выполняются только тесты гостя и проверки формы входа (2.3), остальные пропускаются.

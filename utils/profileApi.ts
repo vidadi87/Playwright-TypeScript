@@ -2,6 +2,14 @@ import { Page, expect } from "@playwright/test";
 
 const API_RE = /^https:\/\/api\.unicoplay\.com\//;
 
+/** Профиль в ответе API сайта: только поля, которые читаем */
+type RawProfile = {
+  fullname: string;
+  child: boolean;
+  avatar?: string;
+  language?: { interface?: string };
+};
+
 /** Профиль из GET /profile/list: только поля, которые нужны тестам (e-mail и id аккаунта не берём) */
 export type ServerProfile = {
   name: string;
@@ -26,7 +34,7 @@ export class ProfileApi {
     });
   }
 
-  private async get(path: string): Promise<any> {
+  private async get<T>(path: string): Promise<T> {
     // Ключ появляется после первого запроса страницы к API: если страница ещё пустая — открываем главную
     if (!this.apiKey && this.page.url() === "about:blank") {
       await this.page.goto("/", { waitUntil: "domcontentloaded" });
@@ -39,12 +47,12 @@ export class ProfileApi {
 
   /** Все профили аккаунта */
   async list(): Promise<ServerProfile[]> {
-    return (await this.get("/profile/list")).map(toProfile);
+    return (await this.get<RawProfile[]>("/profile/list")).map(toProfile);
   }
 
   /** Профиль, выбранный в текущей сессии браузера (выбор профиля — POST /profile/select) */
   async current(): Promise<ServerProfile> {
-    return toProfile(await this.get("/profile"));
+    return toProfile(await this.get<RawProfile>("/profile"));
   }
 
   /**
@@ -75,6 +83,6 @@ export class ProfileApi {
   }
 }
 
-function toProfile(p: Record<string, any>): ServerProfile {
+function toProfile(p: RawProfile): ServerProfile {
   return { name: p.fullname, child: p.child, interface: p.language?.interface ?? "", avatar: p.avatar ?? "" };
 }

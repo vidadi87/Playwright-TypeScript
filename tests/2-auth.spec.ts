@@ -82,9 +82,9 @@ test.describe("[2] Авторизация по почте", () => {
       await test.step("Открылась главная, пользователь авторизован", async () => {
         await auth.waitForCodeResult(header.favoritesLink.first(), "После ввода кода вход не выполнен");
         // Главная любого языка: «/», «/ru», «/en» — язык после входа берётся из аккаунта
-        await expect.poll(() => new URL(page.url()).pathname, { message: "После входа не открылась главная" }).toMatch(
-          /^\/([a-z]{2}\/?)?$/,
-        );
+        await expect
+          .poll(() => new URL(page.url()).pathname, { message: "После входа не открылась главная" })
+          .toMatch(/^\/([a-z]{2}\/?)?$/);
         await header.expectLoggedIn();
       });
 
@@ -93,7 +93,6 @@ test.describe("[2] Авторизация по почте", () => {
         await header.expectLoggedIn();
       });
     });
-
   });
 
   test.describe("[2.3] Некорректный email", () => {
