@@ -60,13 +60,13 @@ test.describe("[4] Навигация: изменения профиля", () =>
   test.skip(!hasTestAccount(), "Нет TEST_EMAIL и GMAIL_APP_PASSWORD в .env (см. .env.example)");
 
   const CASES: Array<{ profile: Profile; add: string; remove: string; url: string; name: string }> = [
-    { profile: "adult", add: "4.5.1.1", remove: "4.5.2.1", url: AUTHORIZED_PRODUCTS.adultFavorite.url, name: "взрослом" },
-    { profile: "kids", add: "4.5.1.2", remove: "4.5.2.2", url: AUTHORIZED_PRODUCTS.kidsFavorite.url, name: "детском" },
+    { profile: "adult", add: "4.5.1.1", remove: "4.5.2.1", url: AUTHORIZED_PRODUCTS.adultFavorite.url, name: "во взрослом" },
+    { profile: "kids", add: "4.5.1.2", remove: "4.5.2.2", url: AUTHORIZED_PRODUCTS.kidsFavorite.url, name: "в детском" },
   ];
 
   test.describe("[4.5] Буду смотреть", () => {
     for (const c of CASES) {
-      test(`[${c.add}] Добавление в «Буду смотреть» в ${c.name} профиле`, async ({
+      test(`[${c.add}] Добавление в «Буду смотреть» ${c.name} профиле`, async ({
         page,
         header,
         accountMenu,
@@ -88,7 +88,7 @@ test.describe("[4] Навигация: изменения профиля", () =>
         }
       });
 
-      test(`[${c.remove}] Удаление из «Буду смотреть» в ${c.name} профиле`, async ({
+      test(`[${c.remove}] Удаление из «Буду смотреть» ${c.name} профиле`, async ({
         page,
         header,
         accountMenu,
@@ -111,12 +111,12 @@ test.describe("[4] Навигация: изменения профиля", () =>
 
   test.describe("[4.6] Оценка контента", () => {
     const RATING_CASES = [
-      { id: "4.6.1", profile: "adult" as const, url: AUTHORIZED_PRODUCTS.adultFavorite.url, name: "взрослом" },
-      { id: "4.6.2", profile: "kids" as const, url: AUTHORIZED_PRODUCTS.kidsFavorite.url, name: "детском" },
+      { id: "4.6.1", profile: "adult" as const, url: AUTHORIZED_PRODUCTS.adultFavorite.url, name: "во взрослом" },
+      { id: "4.6.2", profile: "kids" as const, url: AUTHORIZED_PRODUCTS.kidsFavorite.url, name: "в детском" },
     ];
 
     for (const c of RATING_CASES) {
-      test(`[${c.id}] Оценка контента в ${c.name} профиле`, async ({ page, header, accountMenu, product }) => {
+      test(`[${c.id}] Оценка контента ${c.name} профиле`, async ({ page, header, accountMenu, product }) => {
         await openProduct(page, header, accountMenu, product, c.profile, c.url);
         const expectRating = async (like: boolean, message: string) => {
           await expect.poll(() => product.isRatingActive(product.likeButton), { message }).toBe(like);
