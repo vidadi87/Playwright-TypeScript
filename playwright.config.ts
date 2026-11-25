@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 import { AUTH_STATE_FILE } from "./test-data/auth";
+import { KZ_ONLY, REGION } from "./test-data/region";
 
 /* Секреты тестового Gmail (TEST_EMAIL, GMAIL_APP_PASSWORD) — из .env, см. .env.example.
    В CI те же переменные задаются секретами окружения */
@@ -20,6 +21,9 @@ const CHROME = {
 export default defineConfig({
   testDir: "./tests",
 
+  /* За пределами Казахстана (REGION=intl) проверки только для Казахстана не запускаются */
+  grepInvert: REGION === "intl" ? new RegExp(KZ_ONLY) : undefined,
+
   /* Тесты независимы друг от друга: у каждого свой чистый контекст браузера */
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -33,7 +37,10 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   /* list - вывод в консоль, html - отчет без автооткрытия */
-  reporter: [["list"], ["html", { open: "never" }]],
+  /* В CI ещё github: ошибки упавших тестов попадают в аннотации прогона, их видно без скачивания отчёта */
+  reporter: process.env.CI
+    ? [["github"], ["list"], ["html", { open: "never" }]]
+    : [["list"], ["html", { open: "never" }]],
 
   use: {
     /* Стенд задается через переменную окружения, dev - по умолчанию */

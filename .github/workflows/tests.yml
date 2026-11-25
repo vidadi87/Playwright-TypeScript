@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -30,14 +30,17 @@ jobs:
       - run: npm run format:check
 
   tests:
-    name: Playwright (${{ inputs.suite }})
+    name: Playwright tests
     if: github.event_name == 'workflow_dispatch'
     needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      # Серверы GitHub в США: сайт показывает им каталог для зарубежного пользователя (test-data/region.ts)
+      REGION: intl
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -60,7 +63,7 @@ jobs:
 
       - name: HTML-отчёт
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ inputs.suite }}
           path: playwright-report/

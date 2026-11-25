@@ -11,13 +11,18 @@ import { MENU_SECTIONS } from "../test-data/sections";
  * Название теста = ID тест-кейса в Notion (база «Тест-кейсы UnicoPlay Web»): [1.4.1] ↔ TC-1.4.1.
  */
 test.describe("[1] Неавторизованный пользователь", () => {
-  test("[1.1.1] Смена языка с казахского на русский на начальном экране", async ({ page, home }) => {
-    await home.switchLanguageToRussianViaBanner();
+  // Баннер выбора языка с казахским по умолчанию — только в Казахстане; за рубежом сайт сразу на английском
+  test(
+    "[1.1.1] Смена языка с казахского на русский на начальном экране",
+    { tag: "@kz-only" },
+    async ({ page, home }) => {
+      await home.switchLanguageToRussianViaBanner();
 
-    await expect(page).toHaveURL(RU_URL_RE);
-    await expect(page.locator("html"), "Язык документа не русский").toHaveAttribute("lang", "ru");
-    await home.header.expectRussianMenu();
-  });
+      await expect(page).toHaveURL(RU_URL_RE);
+      await expect(page.locator("html"), "Язык документа не русский").toHaveAttribute("lang", "ru");
+      await home.header.expectRussianMenu();
+    },
+  );
 
   test("[1.2.1] Просмотр линеек на главной и открытие карточек фильма и сериала", async ({
     page,

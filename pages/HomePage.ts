@@ -99,7 +99,12 @@ export class HomePage {
    */
   async openFirstCardAndBack(sliderId: string, home: RegExp, checkCard: () => Promise<void>) {
     const card = this.firstProductCard(sliderId);
-    await expect(card).toBeVisible();
+    // Линейки ниже первого экрана подгружают карточки при прокрутке. После возврата на главную страница
+    // перерисовывается и линейка может пропасть из DOM во время прокрутки — повторяем до видимой карточки
+    await expect(async () => {
+      await this.page.locator(`[id="${sliderId}"]`).scrollIntoViewIfNeeded({ timeout: 5_000 });
+      await expect(card).toBeVisible({ timeout: 5_000 });
+    }, `В линейке ${sliderId} не появилась карточка`).toPass({ timeout: 30_000 });
     await card.click();
     await this.page.waitForURL(PRODUCT_URL_RE);
     await checkCard();

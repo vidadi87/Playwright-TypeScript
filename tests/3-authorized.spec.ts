@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures";
-import { KIDS_MENU, PROFILES } from "../test-data/profiles";
+import { ADULT_MENU, KIDS_MENU, PROFILES } from "../test-data/profiles";
 import { AUTHORIZED_PRODUCTS } from "../test-data/products";
 import { hasTestAccount } from "../utils/mailbox";
 
@@ -61,7 +61,7 @@ test.describe("[3] Авторизованный пользователь без 
       await accountMenu.switchTo(PROFILES.main);
 
       await expect(page, "Осталась детская главная").not.toHaveURL(/\/kids/);
-      for (const name of ["Фильмы", "Сериалы", "Детям", "ТВ", "Кино на ТВ", "Спорт", "Новинки", "Буду смотреть"]) {
+      for (const name of ADULT_MENU) {
         await expect(header.menuLink(name).first(), `В меню нет «${name}»`).toBeVisible();
       }
       expect(await accountMenu.avatarKey(), "В шапке не аватар основного профиля").toBe(adultAvatar);
