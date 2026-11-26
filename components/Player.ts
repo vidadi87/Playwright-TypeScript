@@ -1,6 +1,11 @@
 import { Locator, Page, expect, test } from "@playwright/test";
 
-const PLAYER_TIMEOUT = 15_000;
+/* В CI (серверы GitHub в США) видео с сайта грузится заметно медленнее — ожидания там длиннее.
+   Локально ожидание заканчивается, как только видео готово, поэтому запас ничего не замедляет */
+const CI = Boolean(process.env.CI);
+const PLAYER_TIMEOUT = CI ? 45_000 : 15_000;
+/* Смещение позиции и времени в интерфейсе плеера после перемотки */
+const SEEK_TIMEOUT = CI ? 15_000 : 5_000;
 /* Максимум ожидания кнопки «Пропустить» (появляется после отсчёта ~5–8 сек) или окончания преролла */
 const PREROLL_TIMEOUT = 30_000;
 /* Основное видео считаем стартовавшим после этой отметки (сек): до показа преролла оно успевает
@@ -105,7 +110,7 @@ export class Player {
       await expect
         .poll(position, {
           message: "Позиция воспроизведения не сместилась к середине после клика по полосе прогресса",
-          timeout: 5_000,
+          timeout: SEEK_TIMEOUT,
         })
         .toBeGreaterThanOrEqual(SEEK_MIDDLE_MIN);
       expect(await position(), "Перемотка ушла дальше середины").toBeLessThanOrEqual(SEEK_MIDDLE_MAX);
@@ -116,7 +121,7 @@ export class Player {
         return parseTimecode(await this.currentTime.innerText()) / duration;
       };
       await expect
-        .poll(shownPosition, { message: "Время в плеере не сместилось к середине видео", timeout: 5_000 })
+        .poll(shownPosition, { message: "Время в плеере не сместилось к середине видео", timeout: SEEK_TIMEOUT })
         .toBeGreaterThanOrEqual(SEEK_MIDDLE_MIN);
       expect(await shownPosition(), "Время в плеере ушло дальше середины").toBeLessThanOrEqual(SEEK_MIDDLE_MAX);
 

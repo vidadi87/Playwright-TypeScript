@@ -1,17 +1,11 @@
-name: Tests
+name: UnicoPlay Web
 
 on:
   push:
     branches: [main]
   pull_request:
-  # Тесты идут на боевом сайте, поэтому запускаются только вручную: Actions → Tests → Run workflow
+  # Тесты идут на боевом сайте, поэтому запускаются только вручную: Actions → UnicoPlay Web → Run workflow
   workflow_dispatch:
-    inputs:
-      suite:
-        description: "Набор тестов: guest — гость, без почты; all — весь набор (2 письма с кодом на тестовый Gmail)"
-        type: choice
-        options: [guest, all]
-        default: guest
 
 jobs:
   checks:
@@ -30,7 +24,7 @@ jobs:
       - run: npm run format:check
 
   tests:
-    name: Playwright tests
+    name: Регрессия UnicoPlay Web
     if: github.event_name == 'workflow_dispatch'
     needs: checks
     runs-on: ubuntu-latest
@@ -48,14 +42,9 @@ jobs:
       # Google Chrome, а не Chromium из комплекта Playwright: в Chromium нет кодеков H.264/AAC для видео
       - run: npx playwright install --with-deps chrome
 
-      - name: Тесты гостя
-        if: inputs.suite == 'guest'
-        # --no-deps: без входа в аккаунт (проект setup), письма с кодом не отправляются
-        run: npx playwright test tests/1-guest.spec.ts --project=chromium --no-deps
-
-      - name: Весь набор
-        if: inputs.suite == 'all'
-        # Без секретов тесты со входом пропускаются, остальные идут
+      - name: Регрессионный набор UnicoPlay Web
+        # Вход в тестовый аккаунт — по коду из письма: секреты TEST_EMAIL и GMAIL_APP_PASSWORD.
+        # Без них тесты со входом пропускаются, остальные идут
         env:
           TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -65,6 +54,6 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ inputs.suite }}
+          name: playwright-report
           path: playwright-report/
           retention-days: 14

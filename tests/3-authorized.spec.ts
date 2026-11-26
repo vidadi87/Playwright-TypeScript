@@ -1,16 +1,53 @@
 import { test, expect } from "../fixtures";
 import { ADULT_MENU, KIDS_MENU, PROFILES } from "../test-data/profiles";
-import { AUTHORIZED_PRODUCTS } from "../test-data/products";
+import { AUTHORIZED_PRODUCTS, PRODUCTS } from "../test-data/products";
 import { hasTestAccount } from "../utils/mailbox";
 
 /**
  * [3] Авторизованный пользователь без подписки. Сессия — из tests/auth.setup.ts.
- * 3.1 (платный контент без подписки) пропускаем: продукт закрывается, оформление подписки отключено.
+ * 3.1 (платный контент без подписки): оформление подписки на сайте отключено — ожидаемое падение (см. ниже).
  * 3.4 (язык) и 3.5 (аватар) — в tests/3-account-changes.spec.ts: они меняют профиль на сервере и идут отдельно.
  * Профиль переключается только в своём контексте браузера, поэтому тесты не мешают друг другу.
  */
 test.describe("[3] Авторизованный пользователь без подписки", () => {
   test.skip(!hasTestAccount(), "Нет TEST_EMAIL и GMAIL_APP_PASSWORD в .env (см. .env.example)");
+
+  /**
+   * Ожидаемый результат 3.1 — открывается экран оформления подписки, видео не запускается.
+   * Сейчас тарифов нет (GET /billing/subscriptions → []), и экран не открывается: это ожидаемое
+   * падение. Помечаем его только после проверки «видео не запускается» — если видео запустится,
+   * тест упадёт по-настоящему. Если оформление подписки вернут, тест сообщит «ожидалось падение».
+   */
+  test.describe("[3.1] Попытка воспроизведения платного контента без подписки", () => {
+    const SUBSCRIPTION_DISABLED = "Оформление подписки отключено: список тарифов пуст, экран оформления не открывается";
+
+    test("[3.1.1.1] Попытка воспроизведения фильма без подписки", async ({ product, player }) => {
+      await product.open(PRODUCTS.paidMovie.url, { authorized: true });
+      await expect(product.playButton, "В карточке нет кнопки «Оформить подписку»").toHaveText("Оформить подписку");
+
+      await product.playButton.click();
+
+      await expect.soft(product.subscriptionScreen, "Не открылся экран оформления подписки").toBeVisible();
+      await expect(player.container, "Видео не должно запускаться без подписки").toBeHidden();
+      test.fail(true, SUBSCRIPTION_DISABLED);
+    });
+
+    test("[3.1.2.1] Попытка воспроизведения платной серии сериала без подписки", async ({ product, player }) => {
+      const series = PRODUCTS.freeEpisodeSeries;
+      await product.open(series.url, { authorized: true });
+
+      const paidEpisode = product.episode(series.paidEpisodeNumber);
+      await paidEpisode.scrollIntoViewIfNeeded();
+      await expect(paidEpisode, "Серия из тестовых данных помечена как бесплатная").not.toContainText("БЕСПЛАТНО");
+
+      // Клик по картинке серии (клик по тексту «N серия» открывает страницу серии, это другой сценарий)
+      await product.episodeImage(series.paidEpisodeNumber).click();
+
+      await expect.soft(product.subscriptionScreen, "Не открылся экран оформления подписки").toBeVisible();
+      await expect(player.container, "Видео не должно запускаться без подписки").toBeHidden();
+      test.fail(true, SUBSCRIPTION_DISABLED);
+    });
+  });
 
   test.describe("[3.2] Воспроизведение трейлеров", () => {
     test("[3.2.1] Воспроизведение трейлера во взрослом профиле", async ({ product, player }) => {

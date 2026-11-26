@@ -23,6 +23,12 @@ export class ProductPage {
   readonly details: Locator;
   /** Хлебные крошки: «Главная › Фильмы › Детектив › Достать ножи» */
   readonly breadcrumbs: Locator;
+  /**
+   * Экран оформления подписки (выбор тарифа). Сейчас на сайте он не открывается — тарифов нет
+   * (GET /billing/subscriptions → []), поэтому признак общий: окно или текст про тарифы.
+   * Кнопку «Оформить подписку» в самой карточке не считаем
+   */
+  readonly subscriptionScreen: Locator;
 
   constructor(private readonly page: Page) {
     this.title = page.locator("h1").first();
@@ -36,6 +42,11 @@ export class ProductPage {
     this.dislikeButton = page.getByRole("button", { name: "dislike Не нравится" });
     this.details = page.locator('[class*="TopBlock_TopBlock__description-short"]').first();
     this.breadcrumbs = page.locator('[class*="BreadCrumbs_breadcrumbs_wrapper"]').first();
+    this.subscriptionScreen = page
+      .getByRole("dialog")
+      .filter({ hasText: /подписк|тариф/i })
+      .or(page.getByText(/тариф/i))
+      .first();
   }
 
   async isFavorite(): Promise<boolean> {
